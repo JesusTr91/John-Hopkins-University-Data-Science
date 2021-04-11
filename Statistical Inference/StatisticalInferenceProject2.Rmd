@@ -1,0 +1,58 @@
+# Basic Inferential Data Analysis
+
+**Description:** The response is the length of odontoblasts (cells responsible for tooth growth) in 60 guinea pigs. Each animal received one of three dose levels of vitamin C (0.5, 1, and 2 mg/day) by one of two delivery methods, orange juice or ascorbic acid (a form of vitamin C and coded as VC).
+
+**Format:** A data frame with 60 observations on 3 variables.
+
+1. len	numeric	Tooth length
+
+2. supp	factor	Supplement type (VC or OJ)
+
+3. dose	numeric	Dose in milligrams/day
+```{r}
+library(ggplot2)
+head(ToothGrowth, 5)
+
+```
+### Basic summary of the data
+```{r}
+str(ToothGrowth)
+```
+```{r}
+ToothGrowth$dose <- as.factor(ToothGrowth$dose)
+summary(ToothGrowth)
+```
+
+### 
+
+```{r}
+ggplot(data = ToothGrowth, aes(x = as.factor(dose), y = len, fill = supp)) +
+  geom_boxplot() + 
+  labs(title=expression("Tooth Growth vs Dose Amount by Delivery Method")) +
+  scale_fill_brewer(palette = "Set3") +
+  xlab("Dose (mg)") +
+  ylab("Tooth length") + 
+  guides(fill = guide_legend(title = "Supplement type")) +
+  theme_bw()
+```
+
+As we can see in the chart above for both supplements tooth length tends to be greater if the dose is larger. On the other hand, supplement OJ tends to give greater tooth length with smaller doses than VC. However when the doses is increased to 2 mg, the second supplement seems to be slightly effective.
+```{r}
+t.test(len ~ supp, data = ToothGrowth)
+```
+The p-value 0.06 indicates that we cannot reject the null hypothesis that the different supplement types have no effect on tooth length. 
+```{r}
+TG_dose_5_2 <- subset (ToothGrowth, dose %in% c(0.5, 2.0)) 
+t.test(len ~ dose, data = TG_dose_5_2)
+```
+Comparing the lowest and highest doses the p-value is 4.398e-14, rather small compared to the standart threshold 0.05. This allows us to reject the null hypothesis and determine that different supplement type actually has effect on tooth length. By increasing the doses we will have increases in tooth length.
+```{r}
+TG_dose_1_2 <- subset (ToothGrowth, dose %in% c(1.0, 2.0)) 
+t.test(len ~ dose, data = TG_dose_1_2)
+```
+Comparing the 2 highest doses the p-value is also less than 0.05. So like the first case, we can reject the null hypothesis and be sure that increasing doses will lead to greater tooth lengths.
+
+## Conclusions
+
+1. The boxplot showed that supplement type has a slight effect on tooth growth.
+2. Higher doses lead an increment in tooth lengths.
