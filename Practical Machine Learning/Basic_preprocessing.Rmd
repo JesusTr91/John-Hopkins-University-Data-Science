@@ -1,0 +1,118 @@
+# Machine Learning Basic Pre-processing
+
+To get to know your data you need to plot the variables upfront so you can see if there's any sort of weird behavior of those variables. And sometimes predictors will look very strange or the distribution will be very strange, and you might need to transform them in order to make them more useful for prediction algorithms. This is particularly true when you're using model based algorithms.
+```{r}
+library(caret)
+library(kernlab)
+library(RANN)
+
+data(spam)
+df <- spam
+
+part <- createDataPartition(y=df$type, p=0.75, list=F)
+train <- df[part,]
+test <- df[-part,]
+hist(train$capitalAve, main="", xlab='Ave.capital run length')
+```
+### Standardizing
+
+Almost all of the run links are very small, but there are a few that are much, much larger. This is an example of a variable that is very skewed, and, so it's very hard to deal with in model based predictors and so you might want to preProcess.
+
+```{r}
+mean(train$capitalAve)
+```
+
+```{r}
+sd(train$capitalAve)
+```
+If you take the mean of this variable, it's about 4.7. But the standard deviation is huge, it's much much larger. So, it's much more highly variable variable. And so, what you might want to do is do some sort of preprocessing, so the machine learning algorithms don't get tricked by the fact that it's skewed and highly variable.
+
+One way that you can do this is by basically standardizing variables, and the usual way to standardize variables, is to take the variable values, and subtract their mean. Then put, so you take the value, subtract the mean, and then divide that whole quantity by the standard deviation. When you do that the mean of the variables that you have will be zero. And the standard deviation will be one, so that will reduce a lot of that variability that we saw previously. And it will, standardize the variable somewhat.
+
+```{r}
+trainCapAve <- train$capitalAve
+trainCapAveS <- (trainCapAve-mean(trainCapAve))/sd(trainCapAve)
+mean(trainCapAveS)
+```
+
+```{r}
+sd(trainCapAveS)
+```
+One thing to keep in mind is, again, when we apply a prediction algorithm to the test set. We have to be aware that we can only use parameters that we estimated in the training set. In other words, when we apply this same standardization to the test set, we have to use the mean from the training set, and the standard deviation from the training set, to standardize the testing set values. What does this mean? It means that when you do the standardization, the mean will not be exactly zero in the test set. And the standard deviation will not be exactly one, because we've standardized by parameters estimated in the training set, but hopefully they'll be close to those values even though we're using not the exact values built in the test set.
+```{r}
+testCapAve <- test$capitalAve
+testCapAveS <- (testCapAve-mean(trainCapAve))/sd(trainCapAve)
+mean(testCapAveS)
+```
+
+```{r}
+sd(testCapAveS)
+```
+You can also use the preProcess function to do a lot of standardization for you. So, the preprocess function is a function that is built into the caret package.  Passing it all of the training variables except for one, except for the 58th in the data set, which is the actual outcome that we care about. And I'm telling it to center every variable and scale every variable. That will do that same transformation that we have previously done to the data, where you subtract the mean and divide by the standard deviation. 
+
+```{r}
+preproc <-preProcess(train[,-58], method=c('center', 'scale'))
+trainCapAveSP <- predict(preproc, train[,-58])$capitalAve
+mean(trainCapAveSP)
+```
+```{r}
+sd(trainCapAveSP)
+```
+```{r}
+testCapAveSP <- predict(preproc, test[,-58])$capitalAve
+mean(testCapAveSP)
+```
+```{r}
+sd(testCapAveSP)
+```
+So, centering and scaling is one approach, and that will take care of some the problems that we see in these data. You can remove, very strongly biased predictors or predictors that have super high variability. The other thing that you can do is use other different kinds of transformations one example is the box cox transforms. Box cox transforms are a set of transformations that take continuous data, and try to make them look like normal data and they do that by estimating a specific set of parameters using maximum likelihood. So, if I use the preprocess function and I tell it to perform box cox transformations on each of the variables, and then I predict.
+
+```{r}
+preproc2 <- preProcess(train[,-58], method=c('BoxCox'))
+trainCapAveSP2 <- predict(preproc2, train[,-58])$capitalAve
+par(mfrow=c(1,2))
+hist(trainCapAveSP2); qqnorm(trainCapAveSP2)
+```
+Each of the different variables using that preprocess object on the training set. I can look at the capital average values, and I can make a histogram of those values. And now, remember in the original plot on the histogram, they looked like a huge pile at zero and a few values that were large. And now you see something that look a little bit more like a normal distribution, a little bit more like a bell curve here. You will notice that it doesn't take care of all of the problems. So, for example there's still a stack set of values here at zero and in the Q-Q plot, so this is showing the theoretical quantiles of the normal distribution. Versus the sample quintiles that we calculated for our preProcess data, you can see that they don't perfectly line up and in particular there's this again chunk down here at the bottom these don't lie on a perfect 45 degree line, and that's because if you have a bunch of values that are exactly equal to zero this is a continuous transform and it doesn't take care of values that are repeated. So, it doesn't take care of a lot of the problems that would happen, would occur with using a variable that's highly skewed though.
+
+### Imputing data
+
+Other  thing that we can do is also impute data for these data sets. So, it's very common to have missing data. And when you're using missing data in the data sets, the prediction algorithms often fail. Prediction algorithms are built not to handle missing data in most cases. So, if you have some missing data. You can impute them using something called k-nearest neighbor's imputation. 
+
+Taking just these capital average values and, I create a new variable called CapAve. Then I generate randomly a bunch of values using the rbinom function to set equal to NA and I set those values to be missing. So, now this variable capAve is exactly like the capitalAve valuable only it has a subset of values that are missing.
+```{r}
+set.seed(13343)
+
+# Make some values NA
+train$capAve <- train$capitalAve
+selectNA <- rbinom(dim(train)[1], size=1, prob=0.05)==1
+train$capAve[selectNA] <- NA
+
+# Impute and standarize
+preproc3 <- preProcess(train[,-58], method = 'knnImpute')
+capAve <- predict(preproc3, train[,-58])$capAve
+
+#Standarize true values
+capAveTruth <- train$capitalAve
+capAveTruth <- (capAveTruth-mean(capAveTruth))/sd(capAveTruth)
+
+```
+So, now I want to know how would I handle those missing values? I did this so that we could see how we could handle missing values in a dataset. So, one thing that you going to do is you going to get news as preProcess function and tell it to do k-nearest neighbors imputation. K-nearest neighbors computation find the k. So if k equal to ten, then the 10 nearest, data vectors that look most like data vector with the missing value, and average the values of the variable that's missing and compute them at that position. So, if we do that, then we can predict on our training set, all of the new values, including the ones that have been imputed with the k-nearest imputation algorithm.
+
+One thing you can do is you can look at the comparison between the actual, in this case, when we set some of the values to be equal to NA in advance, we can look at the values that were imputed, and the values that were truly there before we removed them and made them NAs. And we can see how close those two values are to each other. And so, you can see that those values are relatively close to each other. Most of the differences are very close to zero. Here you can see the values are mostly very close to zero. So the imputation work relatively well.
+
+```{r}
+quantile(capAve-capAveTruth)
+```
+You can also do look at just the values that were imputed. So again here I'm looking at a capAve quantile of the same difference between the imputed values. And the true values, they're only for the ones that were missing. And here you can see again, most of the values are close to zero, but here we're only looking at the ones we're missing, so clearly some of them are more variable than previously.
+```{r}
+quantile((capAve-capAveTruth)[selectNA])
+```
+And then you can look at the ones that were not the ones that we selected to be NA. And you can see that they're even closer to each other, and so the ones that got imputed are a little bit further apart. But aren't that much further apart.
+```{r}
+quantile((capAve-capAveTruth)[!selectNA])
+```
+
+In general, you need to pay attention to the fact that anything you do to the training set. Will create a set of parameters. You must use only those parameters when you apply it to the test set. You can't estimate new transformations on the test set alone. And that means that the test set transformations will likely be imperfect. Especially if the test and training sets are diff, collected at different times or in different ways. Some of the transformations won't necessarily work as well.
+
+All of the transformations I'm talking about, so far other than imputation are based on continuous variables. When dealing with factor variables it's a little bit more difficult to know what's the right transformation. Most machine learning algorithms are built to deal with either binary predictors, in which the binary predictors are not pre-processed or continuous predictors in which case sometimes it's expected that, the data are preprocessed to look more normal.
