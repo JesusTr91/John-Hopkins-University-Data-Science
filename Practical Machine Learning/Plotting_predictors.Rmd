@@ -1,0 +1,95 @@
+# Plotting Predictors
+
+One of the most important components of building a machine learning algorithm or prediction model is understanding how the data actually look and how the data interact with each other. So, the best way to do that is actually by plotting the data, in particular plotting the predictors.
+
+```{r}
+library(caret)
+library(ISLR)
+library(ggplot2)
+library(Hmisc)
+
+df <- Wage
+summary(df)
+```
+We're going to build a training set and a test set. Even before we do exploration, we're going to set aside the testing set and we're not going to use it for anything until we actually look at the data at the end of the model building experience.
+
+```{r}
+split <- createDataPartition(y=df$wage, p=0.7, list=FALSE)
+train <- df[split,]
+test <- df[-split,]
+```
+
+Now, we're going to do all our plotting in the training set. So one example is to use this feature plot, plot that comes from the caret package. So this plot will plot basically all of the features against each other so this plot looks a little bit confusing for this data so I thought I'd just go through it. So here I'm, using as the outcome I'm saying the outcome is the wage. It shows you all of the variables that you have here, plotted against each other. And in particular, what you are looking for, here are all the plots corresponding to each of the variables plotted versus the y variable.
+```{r}
+featurePlot(x=train[,c('age', 'education', 'jobclass')], y=train$wage, plot='pairs')
+```
+Another thing that you're going to use is either Qplot, function in the ggplot2 package or just the plot function base R.
+```{r}
+qplot(age,wage,data=train)
+```
+Here I'm plotting age versus wage, and so you can see again it appears that there seems to be some kind of trend with age and wages. But you also see, one thing that you notice frequently from making plots like this. Above there are some very strange patterns. So you see there's this big chunk up here of observations that appear to be very different than the relationship down here for these chunks. So one thing that we might want to do is try to figure out why there, there's that strange relation between ages and wages before we build our, our model.
+
+So, one thing that we could do is, for example, using the ggplot2 package, color that plot by different variables. 
+```{r}
+qplot(age,wage, color=jobclass,data=train)
+```
+So again, I plotted age versus wage, so on the x axis is age, on the y axis is wage. But now I've colored it by the job class. And so you can do that with, by passing the parameter color to the two plot function. And so what you see now is that most of the individuals that are up in this other chunk, come from the information based jobs as opposed to the industrial jobs. So that might explain a lot of the difference here between, these two big classes of observations. So this gives you a way to sort of detect variables that might be important in your model. Because they show, variation in the data. So you can also add regression smoothers. 
+
+```{r}
+qq <- qplot(age,wage,color=education, data=train)
+qq + geom_smooth(method='lm', formula=y~x)
+```
+So what that does is for every different education class, it fits a linear model and so you can see if there's a different relationship for different age groups.
+
+Other thing that you might that is often very useful is to break up things like the wage variable into different categories cause sometimes it's clear that specific categories seem to have different relationships.
+
+Cut2 will break the data set up into factors based on quantile groups. So all of the observations that land between 20.1 and 91.7 on the wage variable will get assigned to this factor level and then all the values between 91.7 and 118.9 will get assigned to this group and so forth. And so, what you can do now is you can actually use that to, in order to make different kinds of plots. 
+
+```{r}
+
+cutWage <- cut2(train$wage, g=3)
+table(cutWage)
+```
+
+So now, suppose I wanted to plot wage versus, oh sorry, wage groups versus age, I can now, use qplot again but now I can pass it the box plot geometry. And then I can say okay, I want to see the plot of these different wage groups versus age and sometimes that can make it easier to see different trends that are emerging. For example, you can see here a little bit more clearly the relationship between age and wage.
+
+```{r}
+p1 <- qplot(cutWage, age, data=train, fill=cutWage, geom=c('boxplot'))
+p1
+```
+
+The other thing you might want to do is you might want to add on top of the box plots, actually the points themselves. The reason why you might want to do this is because sometimes box plots can obscure how many points are being shown here and so one thing that you can do is you can say, pass it both box plot and jitter and you can have it, arrange the plot so you can see both the box plot itself and you can see the box plot with points overlaid.
+
+```{r}
+p2 <- qplot(cutWage, age, data=train, fill=cutWage, geom=c('boxplot', 'jitter'))
+par(mfrow=c(2,2))
+p1; p2
+
+```
+
+As you can see here from the dots that there's a large number of dots in each of the different boxes and so that suggest that this trend, any trend a user may actually be real. If you observe just one of a few dots in the boxes it means maybe that that particular box isn't very well representative of what the data actually looked like.
+
+Another thing that's very useful is you can use the cut variable, the factorized version of the continuous variable to look at tables of data. 
+
+```{r}
+t1 <- table(cutWage, train$jobclass)
+t1
+```
+
+Here I'm making a table comparing this factor version of wages to the job class and so I can see for example that there are more industrial jobs in the lower wage variable than there are information jobs. And that trend reverses itself for the highway jobs. There are fewer industrial people and more information people. You can also use prop table to actually get the proportions in each group. 
+
+```{r}
+prop.table(t1,1)
+```
+
+So here it's the proportion, by passing it one, I say I want to get the proportion in each row. So if I passed it at two here, it would give me the proportion in each column. So here I see that 62% of the low wage jobs go, correspond to industrial, and 37%, 38% correspond to information. And so you can use that to get an idea of how those proportions change across different wage levels.
+
+Finally you can use density plots to plot the values of continuous predictors. So here again I'm using the qplot function. I'm plotting the wage variable, and I'm plotting a density plot, versus education. So this basically shows where the bulk of the data is. So on the x axis is the wage. And on the y axis is sort of the proportion of the variable that falls into that bin of the x axis.
+
+```{r}
+qplot(wage,color=education,data=train,geom='density')
+```
+
+And so you can see, for example, the high school grads tend to have more values that are down here in the lower part of the range, and the advanced degree folks tend to be a little bit higher, and there's also a group, outgroup over here that tends to be very high for both the advanced degree as well as the college grads which is shown in blue. So sometimes density plots can show things that box plots can't necessarily do. It's also easier to overlay multiple distributions when you're doing density plots. In other words, if you break things up into a bunch of different groups, and you want to see how all the distributions change by group, density plots can be very useful. So, one thing to keep in mind is to make your plots only in the training data. The test set, again, can't be used for exploration.
+
+Things that you should be looking for in these plots is imbalance in the outcomes of the predictors. If you see all of the predictors tend to be one value in the one outcome group, and not another outcome group. Then you see that's a good predictor. But if you see that, you only have three of one outcome and 150 of the other outcome, that means it's going to be very hard to build an accurate classifier between those two classes. You're looking for outliers or weird groups outlying the data that might suggest that there are some variables you're missing. And groups of points that are not explained by any of the predictors. Skewed variables which you're going to want to transform and make look better, more sort of nicely normally distributed if you're using things like regression models but that may not matter as much as if you're using more of machine learning methods. 
