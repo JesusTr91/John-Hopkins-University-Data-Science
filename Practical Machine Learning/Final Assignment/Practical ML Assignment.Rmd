@@ -1,0 +1,75 @@
+# Practical Machine Learning Final Assignment 
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+The data for this project come from this source: 
+[Link]: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har
+
+### Loading the data
+
+```{r message=FALSE, warning=FALSE}
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+library(rattle)
+library(e1071)
+library(caret)
+library(dplyr)
+
+trainUrl <-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+train <- read.csv(trainUrl)
+test <- read.csv(testUrl)
+
+```
+
+### Cleaning data
+
+```{r}
+train$classe<-as.factor(train$classe)
+Train <- train %>% tibble::as_tibble() %>% sample_n(size = 1000)
+Train <- Train[, -(which((colSums(is.na(train)) / nrow(train)) > 0.75))]
+Train <- Train[, -grep("cvtd_timestamp",names(Train))]
+Train <- Train[, -grep("X|user_name",names(Train))]
+Train <- Train[, -nearZeroVar(Train)]
+```
+
+### Possible predictors
+
+```{r}
+predictors <- names(Train)
+pred <- predictors[-grep("classe", predictors)]
+pred
+```
+### Building  the model
+```{r}
+trainning <- train[, predictors]
+model <- randomForest(classe ~., data = trainning, type = "class")
+prediction_train <- predict(model, newdata = train)
+confusionMatrix(prediction_train, train$classe)$table
+```
+
+```{r}
+model
+```
+
+### Test set prediction
+Applying the model to the test set will produce the following results:
+
+```{r}
+prediction_test <- predict(model, newdata = test, type = "class")
+prediction_test
+```
+### Conclusion
+
+The random forests algorythm achived a confusion Matrix close to a 100% accuracy, which means that it performs very well when you need to hadle a larga number of inputs and you dont know the interactions between variables.
+
+### Appendix
+
+```{r}
+treeModel <- rpart(classe ~ ., data=trainning, method="class")
+fancyRpartPlot(treeModel)
+```
+
