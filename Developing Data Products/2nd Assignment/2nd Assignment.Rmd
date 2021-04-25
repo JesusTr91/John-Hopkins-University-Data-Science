@@ -1,0 +1,60 @@
+---
+title: "2nd Assignment"
+author: "Jesus Trejo"
+date: "April 23th, 2021"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Pandemic: Covid 19
+
+Covid 19 is an infectious disease caused by a novel coronavirus now called severe acute respiratory syndrome coronavirus (SARS-CoV-2) and has become a global pandemic. 
+
+This disease may affect individuals in different ways. Most people that get infected present slight to moderate symptoms, and recover without the need of any special treatment. However, it is important to get medical assessment if you present any of the following symptoms:
+
+- Fever 
+- Dry cough
+- Tiredness
+
+Globally to this day, there have been around **145,000,000** reported confirmed cases and **3,000,000** reported deaths.
+
+## Data
+
+Lets get a visualization of the behavior the infections have happend across the time using this data frame:
+```{r, message=FALSE, warning=FALSE, comment=""}
+library(plotly)
+library(zoo)
+
+df <- read.csv("World.csv")
+df$Date <- as.Date(df$Date)
+str(df)
+```
+
+## Result
+
+```{r cars, message=F, echo = F, fig.align='center'}
+fig <- plot_ly(df, x = df$Date, y = df$World.Death.Rate.Avg, name = "Death Rate Avg", type = 'scatter', mode = 'lines', line = list(color = 'red', width = 1.5))
+fig <- fig %>% add_trace(y = df$World.Infection.Rate.Avg, name = "Infection Rate Avg", line = list(color = 'blue', width = 1.5)) 
+fig <- fig %>% add_trace(y = df$World.Recovery.Rate.Avg, name = "Recovery Rate Avg", line = list(color = 'green', width = 1.5)) 
+fig <- fig %>% layout(title = "Covid 19 World Pandemic Impact Across the 2020 and 2021",
+         xaxis = list(title = "Date"),
+         yaxis = list (title = "Count"))
+fig
+
+```
+
+## Recomendations
+
+Most governments have adopted policies to fight the spread of this disease, some among the most effective are:
+
+- Use of a face mask
+- Constant hand washing
+- Social Distancing
+- Homeoffice
+
+It is responsbility of all of us, together we can overcome this. 
+
+Stay strong.
