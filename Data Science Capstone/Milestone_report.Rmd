@@ -1,0 +1,192 @@
+# Capstone Milestone Report
+
+### Summary 
+
+The goal of this project is just to display that you've gotten used to working with the data and that you are on track to create your prediction algorithm. This report explains only the major features of the data you have identified and briefly summarize your plans for creating the prediction algorithm and Shiny app in a way that would be understandable to a non-data scientist manager. The motivation for this project is to: 
+
+1. Demonstrate that you've downloaded the data and have successfully loaded it in.
+2. Create a basic report of summary statistics about the data sets.
+3. Report any interesting findings that you amassed so far.
+4. Get feedback on your plans for creating a prediction algorithm and Shiny app. 
+
+### Data 
+
+```{r warning=FALSE, message=FALSE, comment=""}
+library(stringi)
+library(xtable)
+library(knitr)
+library(tm)
+library(quanteda)
+library(wordcloud)
+library(ggplot2)
+library(data.table)
+
+setwd("C:/Users/Propietario/Desktop/Capstone/Final_Assignment")
+
+blogs <- readLines("en_US.blogs.txt", encoding = "UTF-8", skipNul = TRUE)
+news <- readLines("en_US.news.txt", encoding = "UTF-8", skipNul = TRUE)
+twitter <- readLines("en_US.Twitter.txt", encoding = "UTF-8", skipNul = TRUE)
+
+convertion <- 1024^2
+blogs_size <- file.size('en_US.blogs.txt')/ convertion
+news_size <- file.size('en_US.news.txt')/ convertion
+twitter_size <- file.size('en_US.twitter.txt')/ convertion
+
+blogs_linec <- length(blogs)
+news_linec <- length(news)
+twitter_linec <- length(twitter)
+
+blogs_wordc <- sum(stri_count_words(blogs))
+news_wordc <- sum(stri_count_words(news))
+twitter_wordc <- sum(stri_count_words(twitter))
+
+summary <- data.frame(c(blogs_size, news_size, twitter_size), c(blogs_linec, news_linec, twitter_linec), c(blogs_wordc, news_wordc, twitter_wordc))
+row.names(summary) <- c('Blogs','News','Twitter')
+nms <- c('Size', 'Line count', 'Word count')
+setnames(summary, nms)
+summary
+```
+
+### Corpus
+
+Creating corpus using the three data sets.
+
+```{r}
+sample <- 10000
+blogs <- readLines("en_US.blogs.txt", sample, encoding = "UTF-8", skipNul = TRUE)
+news <- readLines("en_US.news.txt", sample, encoding = "UTF-8", skipNul = TRUE)
+twitter <- readLines("en_US.Twitter.txt", sample, encoding = "UTF-8", skipNul = TRUE)
+corpus <- Corpus(VectorSource(c(blogs, news, twitter)))
+```
+
+### Data cleaning
+
+Managing text data:
+
+* Remove punctuation 
+* Remove numbers 
+* Strip whitespaces 
+* Remove non english words 
+* Convert to lower cases
+* Remove any profanity
+
+```{r}
+Tokens1 <- tokens(
+      x = tolower(corpus), what = c("word"),
+      remove_punct = TRUE,
+      remove_twitter = TRUE,
+      remove_numbers = TRUE,
+      remove_hyphens = TRUE,
+      remove_url = TRUE
+)
+
+Tokens2 <- tokens_remove(tokens(Tokens1), stopwords("english"))
+stop_words <- tokens_wordstem(Tokens2, language = "english")
+corpus2 <- Corpus(VectorSource(stop_words))
+```
+
+### Tokenization
+
+With the data cleaned we can proceed into it's analysis by "tokenizating" the data in 3 schemes:
+
+* Unigram
+* Bigram
+* Trigram
+
+```{r}
+bi_gram <- tokens_ngrams(stop_words, n = 2)
+tri_gram <- tokens_ngrams(stop_words, n = 3)
+qua_gram <- tokens_ngrams(stop_words, n = 4)
+
+uni_DFM <- dfm(stop_words)
+bi_DFM <- dfm(bi_gram)
+tri_DFM <- dfm(tri_gram)
+qua_DFM <- dfm(qua_gram)
+
+uni_DFM <- dfm_trim(uni_DFM, 3)
+bi_DFM <- dfm_trim(bi_DFM, 3)
+tri_DFM <- dfm_trim(tri_DFM, 3)
+qua_DFM <- dfm_trim(qua_DFM, 3)
+
+sums_U <- colSums(uni_DFM)
+sums_B <- colSums(bi_DFM)
+sums_T <- colSums(tri_DFM)
+sums_Q <- colSums(qua_DFM)
+
+uni_words <- data.table(word_1 = names(sums_U), count = sums_U)
+
+bi_words <- data.table(
+      word_1 = sapply(strsplit(names(sums_B), "_", fixed = TRUE), '[[', 1),
+      word_2 = sapply(strsplit(names(sums_B), "_", fixed = TRUE), '[[', 2),
+      count = sums_B)
+
+tri_words <- data.table(
+      word_1 = sapply(strsplit(names(sums_T), "_", fixed = TRUE), '[[', 1),
+      word_2 = sapply(strsplit(names(sums_T), "_", fixed = TRUE), '[[', 2),
+      word_3 = sapply(strsplit(names(sums_T), "_", fixed = TRUE), '[[', 3),
+      count = sums_T)
+
+qua_words <- data.table(
+      word_1 = sapply(strsplit(names(sums_Q), "_", fixed = TRUE), '[[', 1),
+      word_2 = sapply(strsplit(names(sums_Q), "_", fixed = TRUE), '[[', 2),
+      word_3 = sapply(strsplit(names(sums_Q), "_", fixed = TRUE), '[[', 3),
+      word_4 = sapply(strsplit(names(sums_Q), "_", fixed = TRUE), '[[', 4),
+      count = sums_Q)
+
+saveRDS(uni_words, file = "unigram.rds")
+saveRDS(bi_words, file = "bigram.rds")
+saveRDS(tri_words, file = "trigram.rds")
+saveRDS(qua_words, file = "quadgram.rds")
+
+uni_words <- uni_words[order(count, decreasing = TRUE)][1:20,]
+bi_words <- bi_words[order(count, decreasing = TRUE)][1:20,]
+tri_words <- tri_words[order(count, decreasing = TRUE)][1:20,]
+qua_words <- qua_words[order(count, decreasing = TRUE)][1:20,]
+```
+
+### Wordcloud
+
+Since we are using text data, a good option its to make a wordcloud to have a better understanding of the most repeated words in the data.
+
+```{r fig.align="center"}
+wordcloud(corpus2, max.words = 200, random.order = FALSE, 
+           rot.per = 0.1, scale = c(2.9, 0.4), use.r.layout = FALSE, 
+           colors = brewer.pal(8, "Dark2"))
+```
+
+### Histograms
+
+A histogram for each data set also can be useful.
+
+```{r fig.align="center"}
+hist1 <- ggplot(uni_words, aes(x=reorder(word_1, -count),y=count)) + 
+      geom_bar(stat="identity", fill="red") + 
+      ggtitle(paste("Most Frequent Unigrams")) + 
+      xlab("Unigrams") + ylab("Frequency") + 
+      theme(axis.text.x=element_text(angle=50, hjust=1)) 
+hist2 <- ggplot(bi_words, aes(x=reorder(paste(word_1,word_2), -count), y=count)) + 
+      geom_bar(stat="identity", fill="red") + 
+      ggtitle(paste("Most Frequent Bigrams")) + 
+      xlab("Bigrams") + ylab("Frequency") + 
+      theme(axis.text.x=element_text(angle=50, hjust=1))  
+hist3 <- ggplot(tri_words, aes(x=reorder(paste(word_1,word_2,word_3), -count), y=count)) + 
+      geom_bar(stat="identity", fill="red") + 
+      ggtitle(paste("Most Frequent Trigrams")) + 
+      xlab("Trigrams") + ylab("Frequency") + 
+      theme(axis.text.x=element_text(angle=50, hjust=1))
+hist4 <- ggplot(qua_words, aes(x=reorder(paste(word_1,word_2,word_3, word_4), -count), y=count)) + 
+      geom_bar(stat="identity", fill="red") + 
+      ggtitle(paste("Most Frequent quagrams")) + 
+      xlab("Quagrams") + ylab("Frequency") + 
+      theme(axis.text.x=element_text(angle=50, hjust=1))
+hist1;hist2;hist3;hist4
+```
+
+
+### Conclusions and recomendations
+
+We can see differences among the 3 data sets concerning to the amount of lines per source type and the amount of words distribution per line. For the twitter source the distribution is more abrupt than for the web and blog, perhaps for the limitation of characters permited in twitter.
+
+As one can imagine, prepositions are the most common word repetition and can be use to calculate the probabilities of each word that can be used for the prediction model depending on which one was the previous word.
+
+The next step is to bluid the shinny app and deploy the algorithm in it with an user-interface to interact with our predictive model to predict the next word.
